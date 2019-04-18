@@ -1,12 +1,19 @@
 <template>
   <div id="login">
+    <b-alert
+      variant="danger"
+      v-model="hasError"
+      dismissible
+      style="width: 40%; position: absolute; top: 0; left: 30%"
+    >{{ error }}</b-alert>
+
     <div class="logo">
       <img src="../images/logo.jpg" alt="Logo">
     </div>
 
     <h2 style="text-align: center">Sign in to Gapsule</h2>
 
-    <b-form @submit="onSubmit">
+    <b-form @submit.prevent="onSubmit">
       <ul class="main">
         <li class="username">
           <label for="username">Username</label>
@@ -51,7 +58,9 @@ export default {
   data() {
     return {
       username: "",
-      password: ""
+      password: "",
+      error: "",
+      hasError: false
     };
   },
   methods: {
@@ -60,13 +69,15 @@ export default {
         method: "POST",
         url: "/signin",
         data: {
-          ajax: 1,
           username: this.username,
           password: this.password
         }
       }).then(response => {
-        if (response.status == 200) {
-          this.$router.replace("/index");
+        if (response.status == 200 && response.data.state == "ok") {
+          this.$router.push("/");
+        } else {
+          this.error = response.data.error;
+          this.hasError = true;
         }
       });
     }
