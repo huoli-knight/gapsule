@@ -25,7 +25,9 @@ def clone(testCase, tmpdir, path):
     testCase.assertEqual(p1.wait(), 0)
 
 
-def commit_file(testCase, tmpdir, filename, content, msg, set_branch=False):
+def commit_file(testCase, tmpdir, filename, content, msg, set_branch=False, branch=None):
+    if branch is None:
+        branch = 'test-branch'
     newrepo = os.path.join(tmpdir, 'efgh')
     with open(os.path.join(newrepo, filename), 'w') as f:
         f.write(content)
@@ -46,19 +48,17 @@ def commit_file(testCase, tmpdir, filename, content, msg, set_branch=False):
                    stdout=DEVNULL,
                    stderr=DEVNULL)
     else:
-        p4 = Popen(['git', 'push', '--set-upstream', 'origin', 'test-branch'],
-                   cwd=newrepo,
-                   stdout=DEVNULL,
-                   stderr=DEVNULL)
+        p4 = Popen(['git', 'push', '--set-upstream', 'origin', branch], cwd=newrepo,
+                   stdout=DEVNULL, stderr=DEVNULL)
     testCase.assertEqual(p4.wait(), 0)
 
 
-def create_branch(testCase, tmpdir):
+def create_branch(testCase, tmpdir, name=None):
+    if name is None:
+        name = "test-branch"
     newrepo = os.path.join(tmpdir, 'efgh')
-    p2 = Popen(['git', 'checkout', '-btest-branch'],
-               cwd=newrepo,
-               stdout=DEVNULL,
-               stderr=DEVNULL)
+    p2 = Popen(['git', 'checkout', '-b'+name], cwd=newrepo,
+               stdout=DEVNULL, stderr=DEVNULL)
     testCase.assertEqual(p2.wait(), 0)
 
 
@@ -74,7 +74,7 @@ class GitModelTestCase(TestCase):
         await git.init_git_repo('abcd', 'efgh')
         root = git.get_repo_dirpath('abcd', 'efgh')
         self.assertTrue(os.path.exists(root))
-        print('testing recpo', root)
+        print('testing repo', root)
         git._check_exists(root)
         with tempfile.TemporaryDirectory() as tmpdir:
             clone(self, tmpdir, root)
@@ -160,3 +160,17 @@ class GitModelTestCase(TestCase):
     async def test_cat_file(self):
         content = await git.git_cat_file('abcd', 'efgh', 'master', 'test2.txt')
         self.assertTrue(content.decode(), 'testing file2')
+
+    @async_test
+    async def test_diff(self):
+        root = git.get_repo_dirpath('abcd', 'efgh')
+        result = await git.git_diff(root, 'master', 'HEAD^1')
+        self.assertEqual(result[0][0], 'a/test2.txt b/test2.txt')
+
+    @async_test
+    async def test_log_range(self):
+        logs = await git.git_commit_logs('abcd', 'efgh', 'master', base="HEAD^1")
+        for h, _ in logs:
+            self.assertTrue(ishash(h))
+        self.assertEqual(len(logs), 1)
+        self.assertEqual(logs[0][1], 'test commit')
